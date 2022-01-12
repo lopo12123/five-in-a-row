@@ -1,0 +1,20 @@
+{
+  "name": "five-in-a-row",
+  "version": "1.0.0",
+  "description": "five-in-a-row",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "five-in-a-row",
+    "fir",
+    "five-son-chesses"
+  ],
+  "author": "lopo",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^4.5.4"
+  }
+}
