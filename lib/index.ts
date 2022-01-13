@@ -243,7 +243,201 @@ export class Fir {
 /**
  * @description an ai to play with you
  */
-export class AI {
-    constructor() {
+export class Ai {
+    // reference of board
+    readonly board: PointOnBoard[][]
+    // size of the board
+    readonly boardSize: number
+    // role of ai
+    readonly role: Player.BLACK | Player.WHITE
+
+    // region global (if can win)
+    // an array to store way to win
+    protected wins: (boolean|null|undefined)[][][] = []
+    // count for 'wins'
+    protected winCount = 0
+    // endregion
+    // region personal (player`s rate to win)
+    protected blackWins: number[] = []
+    protected whiteWins: number[] = []
+    // endregion
+
+    constructor(initBoard: PointOnBoard[][], initRole: Player.BLACK | Player.WHITE) {
+        this.board = initBoard
+        this.boardSize = initBoard.length
+        this.role = initRole
+
+        // region solving 'wins'
+        // 0. init 'wins'
+        for (let i0 = 0; i0 < this.boardSize; i0 ++) {
+            this.wins[i0] = [];
+            for (let j0 = 0; j0 < this.boardSize; j0 ++) {
+                this.wins[i0][j0] = []
+            }
+        }
+        // 1. wins for 'x-X' ( | )
+        for (let i1 = 0; i1 < this.boardSize; i1 ++) {
+            for (let j1 = 0; j1 < this.boardSize - 4; j1++) {
+                for (let k1 = 0; k1 < 5; k1++) {
+                    this.wins[i1][j1 + k1][this.winCount] = true;
+                }
+                this.winCount++;
+            }
+        }
+        // 2. wins for 'y-Y' ( — )
+        for (let i2 = 0; i2 < this.boardSize; i2 ++) {
+            for (let j2 = 0; j2 < this.boardSize - 4; j2 ++) {
+                for (let k2 = 0; k2 < 5; k2++) {
+                    this.wins[j2 + k2][i2][this.winCount] = true;
+                }
+                this.winCount++;
+            }
+        }
+        // 3. wins for 'xy-XY' ( \ )
+        for (let i3 = 0; i3 < this.boardSize - 4; i3 ++) {
+            for (let j3 = 0; j3 < this.boardSize - 4; j3 ++) {
+                for (let k3 = 0; k3 < 5; k3 ++) {
+                    this.wins[i3 + k3][j3 + k3][this.winCount] = true;
+                }
+                this.winCount++;
+            }
+        }
+        // 4. wins for 'xY-Xy' ( / )
+        for (let i4 = 0; i4 < this.boardSize - 4; i4 ++) {
+            for (let j4 = this.boardSize - 1; j4 > 3; j4 --) {
+                for (let k4 = 0; k4 < 5; k4 ++) {
+                    this.wins[i4 + k4][j4 - k4][this.winCount] = true;
+                }
+                this.winCount++;
+            }
+        }
+        // endregion
+        // region init 'blackWins' and 'whiteWins'
+        for(let i = 0; i < this.winCount; i ++) {
+            this.blackWins[i] = 0
+            this.whiteWins[i] = 0
+        }
+        // endregion
+    }
+
+    /**
+     * @description once player put on a point, the ai should set this point as "can never win"
+     * @param x start from 1
+     * @param y start from 1
+     */
+    updateWins(x: number, y: number) {
+        x = x - 1
+        y = y - 1
+        for(let k = 0; k < this.winCount; k ++) {
+            if(this.wins[x][y][k]) {  // can win here
+                (this.role === Player.BLACK ? this.whiteWins : this.blackWins)[k] ++  // player`s wins ++
+                (this.role === Player.BLACK ? this.blackWins : this.whiteWins)[k] = 6  // ai`s wins set to 6 (which means 'never')
+                if((this.role === Player.BLACK ? this.whiteWins : this.blackWins)[k] === 5) {
+                    return [false, 'player win']
+                }
+            }
+        }
+        return [true, 'continue']
+    }
+
+    /**
+     * @description simply use the AiringGo`s method to get the best point for next step
+     * @returns {[number, number]} [x, y] the point to put (start from 1)
+     */
+    getBestPoint() {
+        const whiteScore = this._emptyScoreContainer()  // an array to store white`s score
+        const blackScore = this._emptyScoreContainer()  // an array to store black`s score
+        const aiScore = this.role === Player.BLACK ? blackScore : whiteScore  // an alias point to ai`s score array
+        const playerScore = this.role === Player.BLACK ? whiteScore : blackScore  // an alias point to player`s score array
+        let [u, v] = [0, 0]  // preset the point as [u, v] (of course it should be calculated later)
+        let maxScore = 0  // try to get the best point with maxScore (current zero)
+
+        for(let _x = 0; _x < this.boardSize; _x ++) {
+            for(let _y = 0; _y < this.boardSize; _y ++) {
+                if(this.board[_x][_y] === PointOnBoard.EMPTY) {  // only if it is empty you can try to place here and get the score
+                    // region get the score array ( number[][] )
+                    for(let k = 0; k < this.winCount; k ++) {
+                        if(this.wins[_x][_y][k]) {  // can win here
+                            // region black`s score (base + bonus)
+                            switch (this.blackWins[k]) {
+                                case 1:
+                                    blackScore[_x][_y] += 200 + (this.role === Player.BLACK ? 1 : 0) * 20
+                                    break
+                                case 2:
+                                    blackScore[_x][_y] += 400 + (this.role === Player.BLACK ? 1 : 0) * 20
+                                    break
+                                case 3:
+                                    blackScore[_x][_y] += 2000 + (this.role === Player.BLACK ? 1 : 0) * 100
+                                    break
+                                case 4:
+                                    blackScore[_x][_y] += 10000 + (this.role === Player.BLACK ? 1 : 0) * 10000
+                                    break
+                                default:
+                                    break
+                            }
+                            // endregion
+
+                            // region white`s score (base + bonus)
+                            switch (this.whiteWins[k]) {
+                                case 1:
+                                    whiteScore[_x][_y] += 200 + (this.role === Player.WHITE ? 1 : 0) * 20
+                                    break
+                                case 2:
+                                    whiteScore[_x][_y] += 400 + (this.role === Player.WHITE ? 1 : 0) * 20
+                                    break
+                                case 3:
+                                    whiteScore[_x][_y] += 2000 + (this.role === Player.WHITE ? 1 : 0) * 100
+                                    break
+                                case 4:
+                                    whiteScore[_x][_y] += 10000 + (this.role === Player.WHITE ? 1 : 0) * 10000
+                                    break
+                                default:
+                                    break
+                            }
+                            // endregion
+                        }
+                    }
+                    // endregion
+
+                    // region compare the score and get the best point
+
+                    // there is another if-else in original code
+
+                    // a better score for ai
+                    if(aiScore[_x][_y] > maxScore) {
+                        // update without think
+                        maxScore = aiScore[_x][_y]
+                        u = _x
+                        v = _y
+                    }
+                    // a same score for ai
+                    else if(aiScore[_x][_y] === maxScore) {
+                        // choose the position where your opponent has fewer points
+                        if(playerScore[_x][_y] > playerScore[u][v]) {
+                            u = _x
+                            v = _y
+                        }
+                    }
+                    // endregion
+                }
+            }
+        }
+
+        return [u+1, v+1]
+    }
+
+    /**
+     * @description create a empty can to store scores
+     * @protected
+     */
+    protected _emptyScoreContainer() {
+        const scoreCan: number[][] = []
+        for(let _x = 0; _x < this.boardSize; _x ++) {
+            scoreCan[_x] = []
+            for(let _y = 0; _y < this.boardSize; _y ++) {
+                scoreCan[_x][_y] = 0
+            }
+        }
+        return scoreCan
     }
 }
